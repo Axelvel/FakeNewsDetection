@@ -23,10 +23,14 @@ df_eval = pd.read_csv(EVAL_PATH, sep='\t',names=COLUMNS)
 df_train.pop('id')
 df_eval.pop('id')
 df_test.pop('id')
-train_sentences, train_meta_data, train_mask = preprocessing.preprocess(df_train)
-eval_sentences, eval_meta_data, eval_mask = preprocessing.preprocess(df_eval)
-test_sentences, test_meta_data, test_mask = preprocessing.preprocess(df_test)
 
+all_topic, nb_topic_max = preprocessing.extract_topic(df_train)
+all_speaker = list(set(df_train["speaker"].to_list()))
+all_job = list(set(df_train["job"].to_list()))
+
+train_sentences, train_meta_data, train_mask = preprocessing.preprocess(df_train,all_topic, nb_topic_max,all_speaker,all_job)
+eval_sentences, eval_meta_data, eval_mask = preprocessing.preprocess(df_eval,all_topic, nb_topic_max,all_speaker,all_job)
+test_sentences, test_meta_data, test_mask = preprocessing.preprocess(df_test,all_topic, nb_topic_max,all_speaker,all_job)
 
 # Displaying histogram
 label_distribution = []

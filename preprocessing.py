@@ -43,7 +43,8 @@ def extract_data(matrix, all_topic, nb_topic_max, all_speaker, all_job, all_stat
         #convert each subject into a number and normalize it + padd with 0
         if isinstance(entry[2],str):
             for item in entry[2].split(","):
-                line_meta_datas.append(all_topic.index(item)/len(all_topic))
+                if nb_topic_max-len(line_meta_datas) > 0 and item in all_topic:
+                    line_meta_datas.append(all_topic.index(item)/len(all_topic))
             for i in range(nb_topic_max-len(line_meta_datas)):
                 line_meta_datas.append(0.0)
 
@@ -90,12 +91,8 @@ def extract_data(matrix, all_topic, nb_topic_max, all_speaker, all_job, all_stat
     return statements,meta_datas,mask
 
 
-def preprocess(df):
-    all_topic, nb_topic_max = extract_topic(df)
-
-    all_speaker = list(set(df["speaker"].to_list()))
-    all_job = list(set(df["job"].to_list()))
-
+def preprocess(df,all_topic, nb_topic_max,all_speaker,all_job):
+    
     df = df.values.tolist()
 
     with open("./states.txt") as f:
