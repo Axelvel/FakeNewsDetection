@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import preprocessing
 import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,6 +21,12 @@ df_eval = pd.read_csv(EVAL_PATH, sep='\t',names=COLUMNS)
 
 # Data preprocessing
 df_train.pop('id')
+df_eval.pop('id')
+df_test.pop('id')
+train_sentences, train_meta_data, train_mask = preprocessing.preprocess(df_train)
+eval_sentences, eval_meta_data, eval_mask = preprocessing.preprocess(df_eval)
+test_sentences, test_meta_data, test_mask = preprocessing.preprocess(df_test)
+
 
 # Displaying histogram
 label_distribution = []

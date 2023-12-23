@@ -1,4 +1,3 @@
-from main import df_train,df_test,df_eval,LABELS
 import torch  
 import numpy as np
 from transformers import BertTokenizer,BertModel
@@ -11,46 +10,18 @@ model = BertModel.from_pretrained("bert-base-uncased")
     # - transform everything to text and add it raw(litteraly add the category's name beofre to create some context)
     # - normalize everything and find a way to sum everything up after embedding
 
-train_topic = df_train["subject"].to_list()
-nb_topic_max = 0
-all_topic = []
-for line in train_topic:
-    if isinstance(line,str) :
-        splitted = line.split(",")
-        if len(splitted)>nb_topic_max:
-            nb_topic_max = len(splitted)
-        for item in splitted:
-            all_topic.append(item)
-all_topic = list(set(all_topic))
-
-all_speaker = list(set(df_train["speaker"].to_list()))
-all_job = list(set(df_train["job"].to_list()))
-
-df_train = df_train.values.tolist()
-df_eval = df_eval.values.tolist()
-df_test = df_test.values.tolist()
-
-#SECTION - text with [SEP]
-# ------------------------ PREPROCESSING TRAINING DATA ----------------------- #
-
-# def extract_data(matrix):
-#     statement = []
-#     meta_datas = []
-#     for line in matrix:
-#         statement.append([["[CLS]"],[line[1]],["[SEP]"]])
-
-#         meta_datas.append([["[CLS]"],[f"Topic: {line[2]}"],["[SEP]"],[f"Speaker: {line[3]}"]])
-    
-#     return statement
-
-# print(extract_data(df_train))
-
-
-#SECTION - Number transformation WIP
-
-with open("./states.txt") as f:
-    all_states = f.read()
-all_states = all_states.split()
+def extract_topic(df):
+    topic = df["subject"].to_list()
+    nb_topic_max = 0
+    all_topic = []
+    for line in topic:
+        if isinstance(line,str) :
+            splitted = line.split(",")
+            if len(splitted)>nb_topic_max:
+                nb_topic_max = len(splitted)
+            for item in splitted:
+                all_topic.append(item)
+    return list(set(all_topic)),nb_topic_max
 
 def avoid_nan(entry,entry_list):
     try:
@@ -59,11 +30,13 @@ def avoid_nan(entry,entry_list):
         value = 0
     return value
 
-def extract_data(matrix):
+def extract_data(matrix, all_topic, nb_topic_max, all_speaker, all_job, all_states):
+    
     statements = []
     meta_datas = []
     mask = []
-    for entry in df_train:
+
+    for entry in matrix:
 
         line_meta_datas = []
         
@@ -116,4 +89,17 @@ def extract_data(matrix):
     
     return statements,meta_datas,mask
 
-train_statement, train_meta_data, train_mask = extract_data(df_train)
+
+def preprocess(df):
+    all_topic, nb_topic_max = extract_topic(df)
+
+    all_speaker = list(set(df["speaker"].to_list()))
+    all_job = list(set(df["job"].to_list()))
+
+    df = df.values.tolist()
+
+    with open("./states.txt") as f:
+        all_states = f.read()
+    all_states = all_states.split()
+
+    return(extract_data(df,all_topic, nb_topic_max,all_speaker,all_job,all_states))
