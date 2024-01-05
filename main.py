@@ -12,7 +12,6 @@ from torch.utils.tensorboard import SummaryWriter
 import time
 
 device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-device = 'cpu'
 print('Device:', device)
 
 DATASET = 'liar_dataset/'
@@ -61,6 +60,14 @@ df_train['label'] = label_encoder.transform(df_train['label'])
 train_labels = df_train.pop('label')
 train_labels = torch.tensor(train_labels).to(device)
 
+df_eval['label'] = label_encoder.transform(df_eval['label'])
+eval_labels = df_eval.pop('label')
+eval_labels = torch.tensor(eval_labels).to(device)
+
+df_test['label'] = label_encoder.transform(df_test['label'])
+test_labels = df_test.pop('label')
+test_labels = torch.tensor(test_labels).to(device)
+
 print(df_train)
 print(df_train.shape)
 
@@ -80,6 +87,14 @@ train_mask = train_mask.to(device)
 # Trainloader
 train_dataset = TensorDataset(train_sentences, train_meta_data, train_mask, train_labels)
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+# Valloader
+eval_dataset = TensorDataset(eval_sentences, eval_meta_data, eval_mask, eval_labels)
+eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+# Testloader
+test_dataset = TensorDataset(test_sentences, test_meta_data, test_mask, test_labels)
+test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 NUM_EPOCHS = 1
 LEARNING_RATE = 1e-4
