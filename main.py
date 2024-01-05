@@ -24,7 +24,7 @@ COLUMNS = ['id', 'label', 'statement', 'subject', 'speaker', 'job', 'state', 'pa
 LABELS = ['pants-fire', 'false', 'barely-true', 'half-true', 'mostly-true', 'true']
 
 df_train = pd.read_csv(TRAIN_PATH, sep='\t', names=COLUMNS)
-#df_train = df_train[:100]
+# df_train = df_train[:100] # For testing purposes
 df_test = pd.read_csv(TEST_PATH, sep='\t', names=COLUMNS)
 df_eval = pd.read_csv(EVAL_PATH, sep='\t', names=COLUMNS)
 
@@ -41,7 +41,6 @@ train_sentences, train_meta_data, train_mask = preprocessing.preprocess(df_train
 eval_sentences, eval_meta_data, eval_mask = preprocessing.preprocess(df_eval, all_topic, nb_topic_max, all_speaker, all_job)
 test_sentences, test_meta_data, test_mask = preprocessing.preprocess(df_test, all_topic, nb_topic_max, all_speaker, all_job)
 
-train_meta_data = train_meta_data.float()
 
 # Displaying histogram
 label_distribution = []
@@ -85,6 +84,14 @@ train_sentences = train_sentences.to(device)
 train_meta_data = train_meta_data.to(device)
 train_mask = train_mask.to(device)
 
+eval_sentences = eval_sentences.to(device)
+eval_meta_data = eval_meta_data.to(device)
+eval_mask = eval_mask.to(device)
+
+test_sentences = test_sentences.to(device)
+test_meta_data = test_meta_data.to(device)
+test_mask = test_mask.to(device)
+
 # Trainloader
 train_dataset = TensorDataset(train_sentences, train_meta_data, train_mask, train_labels)
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -97,6 +104,7 @@ eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=True)
 test_dataset = TensorDataset(test_sentences, test_meta_data, test_mask, test_labels)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
+# Hyperparameters
 NUM_EPOCHS = 1
 LEARNING_RATE = 1e-4
 criterion = torch.nn.CrossEntropyLoss()

@@ -84,7 +84,7 @@ def extract_data(matrix, all_topic, nb_topic_max, all_speaker, all_job, all_stat
         statements.append(tok['input_ids'])
         mask.append(tok['attention_mask'])
 
-    meta_datas = torch.tensor(np.array(meta_datas))
+    meta_datas = torch.tensor(np.array(meta_datas), dtype=torch.float32)
 
     statements = torch.cat(statements, dim=0)
     mask = torch.cat(mask, dim=0)
