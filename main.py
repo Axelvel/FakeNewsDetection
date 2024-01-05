@@ -101,6 +101,11 @@ LEARNING_RATE = 1e-4
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
 
+#creating graphs:
+x = np.linspace(0,NUM_EPOCHS-1,NUM_EPOCHS)
+y_loss = []
+y_val_loss = []
+
 # Tensorboard writer
 #writer = SummaryWriter('runs/my_experiment')
 starting_time = time.time()
@@ -119,8 +124,10 @@ for epoch in range(NUM_EPOCHS):
         total_loss += loss.item()
         print(f'{num_batch}/{len(train_loader)}')
     average_loss = total_loss / len(train_loader)
+    y_loss.append(average_loss)
     print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss}")
 
+    #validation set
     total_loss = 0.0
     with torch.no_grad:
         for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
@@ -129,9 +136,15 @@ for epoch in range(NUM_EPOCHS):
             total_loss += loss.item()
             print(f'{num_batch}/{len(eval_loader)}')
         average_loss = total_loss / len(eval_loader)
+        y_val_loss.append(average_loss)
         print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss}")
 
+plt.plot(x,y_loss,label="training loss")
+plt.plot(x,y_val_loss,label="validation loss")
+plt.legend()
+plt.savefig("result.png")
 
+#testing set
 total_loss = 0.0
 with torch.no_grad:
     for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
