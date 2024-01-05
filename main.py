@@ -24,7 +24,7 @@ COLUMNS = ['id', 'label', 'statement', 'subject', 'speaker', 'job', 'state', 'pa
 LABELS = ['pants-fire', 'false', 'barely-true', 'half-true', 'mostly-true', 'true']
 
 df_train = pd.read_csv(TRAIN_PATH, sep='\t', names=COLUMNS)
-# df_train = df_train[:100] # For testing purposes
+df_train = df_train[:100] # For testing purposes
 df_test = pd.read_csv(TEST_PATH, sep='\t', names=COLUMNS)
 df_eval = pd.read_csv(EVAL_PATH, sep='\t', names=COLUMNS)
 
@@ -50,6 +50,7 @@ for label in LABELS:
 print(label_distribution)
 plt.bar(LABELS, label_distribution)
 # plt.show()
+plt.close() # Close a figure window
 
 # Encoding labels
 label_encoder = LabelEncoder()
@@ -105,13 +106,14 @@ test_dataset = TensorDataset(test_sentences, test_meta_data, test_mask, test_lab
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # Hyperparameters
-NUM_EPOCHS = 1
+NUM_EPOCHS = 3
 LEARNING_RATE = 1e-4
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
 
 #creating graphs:
-x = np.linspace(0,NUM_EPOCHS-1,NUM_EPOCHS)
+# x = np.linspace(0, NUM_EPOCHS-1, NUM_EPOCHS)
+x = np.array(list(range(NUM_EPOCHS)))
 y_loss = []
 y_f1 = []
 y_val_loss = []
@@ -123,7 +125,6 @@ f1_score = MulticlassF1Score(num_classes=len(LABELS)).to(device)
 # Tensorboard writer
 #writer = SummaryWriter('runs/my_experiment')
 starting_time = time.time()
-
 
 
 for epoch in range(NUM_EPOCHS):
@@ -144,7 +145,7 @@ for epoch in range(NUM_EPOCHS):
     average_loss = total_loss / len(train_loader)
     average_f1 = total_f1 / len(train_loader)
     y_loss.append(average_loss)
-    y_f1.append(average_f1)
+    y_f1.append(average_f1.item())
     print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1}")
 
     #validation set
@@ -160,17 +161,24 @@ for epoch in range(NUM_EPOCHS):
         average_loss = total_loss / len(eval_loader)
         average_f1 = total_f1 / len(eval_loader)
         y_val_loss.append(average_loss)
-        y_val_f1.append(average_f1)
+        y_val_f1.append(average_f1.item())
         print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1}")
 
-plt.plot(x,y_loss,label="Training loss")
-plt.plot(x,y_f1,label="Training F1")
-plt.plot(x,y_val_loss,label="Validation loss")
-plt.plot(x,y_val_f1,label="Validation F1")
-plt.legend()
-plt.savefig("result.png")
+print('Training time elapsed:', time.time() - starting_time)
 
-#testing set
+plt.plot(x, y_loss, label="Training loss")
+plt.plot(x, y_val_loss, label="Validation loss")
+plt.legend()
+plt.savefig("results_loss.png")
+plt.close()
+
+plt.plot(x, y_f1, label="Training F1")
+plt.plot(x, y_val_f1, label="Validation F1")
+plt.legend()
+plt.savefig("results_F1.png")
+plt.close()
+
+# Testing set
 total_loss = 0.0
 total_f1 = 0.0
 with torch.no_grad():
@@ -183,7 +191,6 @@ with torch.no_grad():
     average_f1 = total_f1 / len(eval_loader)
     average_loss = total_loss / len(eval_loader)
     print(f"Testing {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1}")
-    print('Time elapsed:', time.time() - starting_time)
 
 #writer.close()
 
