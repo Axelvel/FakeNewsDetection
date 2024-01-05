@@ -5,7 +5,15 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import joblib
 from model import FakeNewsClassifier
+import torch
 from torch.utils.data import TensorDataset, DataLoader
+import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
+import time
+
+device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cpu'
+print('Device:', device)
 
 DATASET = 'liar_dataset/'
 TRAIN_PATH = DATASET + 'train.tsv'
@@ -16,6 +24,7 @@ COLUMNS = ['id', 'label', 'statement', 'subject', 'speaker', 'job', 'state', 'pa
 LABELS = ['pants-fire', 'false', 'barely-true', 'half-true', 'mostly-true', 'true']
 
 df_train = pd.read_csv(TRAIN_PATH, sep='\t', names=COLUMNS)
+#df_train = df_train[:100]
 df_test = pd.read_csv(TEST_PATH, sep='\t', names=COLUMNS)
 df_eval = pd.read_csv(EVAL_PATH, sep='\t', names=COLUMNS)
 
@@ -46,8 +55,11 @@ plt.bar(LABELS, label_distribution)
 # Encoding labels
 label_encoder = LabelEncoder()
 label_encoder.fit(LABELS)
-df_train['label'] = label_encoder.transform(df_train['label'])
 joblib.dump(label_encoder, 'data/label_encoder.plk')
+
+df_train['label'] = label_encoder.transform(df_train['label'])
+train_labels = df_train.pop('label')
+train_labels = torch.tensor(train_labels).to(device)
 
 print(df_train)
 print(df_train.shape)
@@ -56,15 +68,51 @@ META_SIZE = len(train_meta_data[0])
 META_HIDDEN_SIZE = 128
 HIDDEN_SIZE = 128
 OUTPUT_SIZE = len(LABELS)
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 
-model = FakeNewsClassifier(meta_size=META_SIZE, meta_hidden_size=META_HIDDEN_SIZE, hidden_size=HIDDEN_SIZE, output_size=OUTPUT_SIZE)
+model = FakeNewsClassifier(meta_size=META_SIZE, meta_hidden_size=META_HIDDEN_SIZE, hidden_size=HIDDEN_SIZE, output_size=OUTPUT_SIZE).to(device)
+
+# Moving tensors to device
+train_sentences = train_sentences.to(device)
+train_meta_data = train_meta_data.to(device)
+train_mask = train_mask.to(device)
 
 # Trainloader
-dataset = TensorDataset(train_sentences, train_meta_data, train_mask)
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+train_dataset = TensorDataset(train_sentences, train_meta_data, train_mask, train_labels)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-for inputs, metadatas, masks in dataloader:
-    outputs = model(inputs, metadatas, masks)
-    print(outputs)
-    exit(0)
+NUM_EPOCHS = 1
+LEARNING_RATE = 1e-4
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
+
+# Tensorboard writer
+#writer = SummaryWriter('runs/my_experiment')
+starting_time = time.time()
+
+for epoch in range(NUM_EPOCHS):
+    total_loss = 0.0
+    global_step = 0
+    print('Epoch:', epoch+1)
+    for num_batch, (inputs, metadatas, masks, labels) in enumerate(train_loader):
+        optimizer.zero_grad()
+        outputs = model(inputs, metadatas, masks)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        #writer.add_scalar('loss', loss.item(), global_step)
+        total_loss += loss.item()
+        print(f'{num_batch}/{len(train_loader)}')
+    average_loss = total_loss / len(train_loader)
+    print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss}")
+
+print('Time elapsed:', time.time() - starting_time)
+
+#writer.close()
+
+# Saving the PyTorch model
+MODEL_PATH = 'models/model.pt'
+
+# Classic model export
+#torch.save(model, MODEL_PATH)
+torch.save(model.state_dict(), MODEL_PATH)
