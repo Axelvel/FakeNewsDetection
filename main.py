@@ -7,9 +7,9 @@ import joblib
 from model import FakeNewsClassifier
 import torch
 from torch.utils.data import TensorDataset, DataLoader
-import torchmetrics
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+from torchmetrics.classification import MulticlassF1Score
 import time
 
 device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -126,7 +126,7 @@ for epoch in range(NUM_EPOCHS):
         optimizer.step()
         #writer.add_scalar('loss', loss.item(), global_step)
         total_loss += loss.item()
-        total_f1 += torchmetrics.functional.multiclass_f1_score(outputs,labels,len(LABELS),"micro")
+        total_f1 += MulticlassF1Score(outputs,labels)
         print(f'{num_batch}/{len(train_loader)}')
     average_loss = total_loss / len(train_loader)
     average_f1 = total_f1 / len(train_loader)
@@ -142,7 +142,7 @@ for epoch in range(NUM_EPOCHS):
             outputs = model(inputs, metadatas, masks)
             loss = criterion(outputs, labels)
             total_loss += loss.item()
-            total_f1 += torchmetrics.functional.multiclass_f1_score(outputs,labels,len(LABELS),"micro")
+            total_f1 += MulticlassF1Score(outputs,labels)
             print(f'{num_batch}/{len(eval_loader)}')
         average_loss = total_loss / len(eval_loader)
         average_f1 = total_f1 / len(eval_loader)
@@ -165,7 +165,7 @@ with torch.no_grad():
         outputs = model(inputs, metadatas, masks)
         loss = criterion(outputs, labels)
         total_loss += loss.item()
-        total_f1 += torchmetrics.functional.multiclass_f1_score(outputs,labels,len(LABELS),"micro")
+        total_f1 += MulticlassF1Score(outputs,labels)
         print(f'{num_batch}/{len(eval_loader)}')
     average_f1 = total_f1 / len(eval_loader)
     average_loss = total_loss / len(eval_loader)
