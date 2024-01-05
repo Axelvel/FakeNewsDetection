@@ -121,7 +121,27 @@ for epoch in range(NUM_EPOCHS):
     average_loss = total_loss / len(train_loader)
     print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss}")
 
-print('Time elapsed:', time.time() - starting_time)
+    total_loss = 0.0
+    with torch.no_grad:
+        for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
+            outputs = model(inputs, metadatas, masks)
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+            print(f'{num_batch}/{len(eval_loader)}')
+        average_loss = total_loss / len(eval_loader)
+        print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss}")
+
+
+total_loss = 0.0
+with torch.no_grad:
+    for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
+        outputs = model(inputs, metadatas, masks)
+        loss = criterion(outputs, labels)
+        total_loss += loss.item()
+        print(f'{num_batch}/{len(eval_loader)}')
+    average_loss = total_loss / len(eval_loader)
+    print(f"Testing {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss}")
+    print('Time elapsed:', time.time() - starting_time)
 
 #writer.close()
 
