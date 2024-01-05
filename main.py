@@ -117,9 +117,14 @@ y_f1 = []
 y_val_loss = []
 y_val_f1 = []
 
+# Instantiate MulticlassF1Score
+f1_score = MulticlassF1Score(num_classes=len(LABELS)).to(device)
+
 # Tensorboard writer
 #writer = SummaryWriter('runs/my_experiment')
 starting_time = time.time()
+
+
 
 for epoch in range(NUM_EPOCHS):
     total_loss = 0.0
@@ -134,7 +139,7 @@ for epoch in range(NUM_EPOCHS):
         optimizer.step()
         #writer.add_scalar('loss', loss.item(), global_step)
         total_loss += loss.item()
-        total_f1 += MulticlassF1Score(outputs,labels)
+        total_f1 += f1_score(outputs, labels)
         print(f'{num_batch}/{len(train_loader)}')
     average_loss = total_loss / len(train_loader)
     average_f1 = total_f1 / len(train_loader)
@@ -150,7 +155,7 @@ for epoch in range(NUM_EPOCHS):
             outputs = model(inputs, metadatas, masks)
             loss = criterion(outputs, labels)
             total_loss += loss.item()
-            total_f1 += MulticlassF1Score(outputs,labels)
+            total_f1 += f1_score(outputs,labels)
             print(f'{num_batch}/{len(eval_loader)}')
         average_loss = total_loss / len(eval_loader)
         average_f1 = total_f1 / len(eval_loader)
@@ -173,7 +178,7 @@ with torch.no_grad():
         outputs = model(inputs, metadatas, masks)
         loss = criterion(outputs, labels)
         total_loss += loss.item()
-        total_f1 += MulticlassF1Score(outputs,labels)
+        total_f1 += f1_score(outputs,labels)
         print(f'{num_batch}/{len(eval_loader)}')
     average_f1 = total_f1 / len(eval_loader)
     average_loss = total_loss / len(eval_loader)
