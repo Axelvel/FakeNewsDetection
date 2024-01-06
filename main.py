@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from torchmetrics.classification import MulticlassF1Score
+from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 import time
 
 device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -116,11 +116,15 @@ optimizer = optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
 x = np.array(list(range(NUM_EPOCHS)))
 y_loss = []
 y_f1 = []
+y_acc = []
 y_val_loss = []
 y_val_f1 = []
+y_val_acc = []
 
-# Instantiate MulticlassF1Score
+# Instantiate MulticlassF1Score and MulticlassAccuracy
 f1_score = MulticlassF1Score(num_classes=len(LABELS)).to(device)
+accuracy = MulticlassAccuracy(num_classes=len(LABELS)).to(device)
+
 
 # Tensorboard writer
 #writer = SummaryWriter('runs/my_experiment')
@@ -129,6 +133,7 @@ starting_time = time.time()
 
 for epoch in range(NUM_EPOCHS):
     total_loss = 0.0
+    total_acc = 0.0
     total_f1 = 0.0
     global_step = 0
     print('Epoch:', epoch+1)
@@ -141,28 +146,35 @@ for epoch in range(NUM_EPOCHS):
         #writer.add_scalar('loss', loss.item(), global_step)
         total_loss += loss.item()
         total_f1 += f1_score(outputs, labels)
+        total_acc += accuracy(outputs,labels)
         print(f'{num_batch}/{len(train_loader)}')
     average_loss = total_loss / len(train_loader)
     average_f1 = total_f1 / len(train_loader)
+    average_acc = total_acc / len(train_loader)
     y_loss.append(average_loss)
     y_f1.append(average_f1.item())
-    print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1}")
+    y_acc.append(average_acc)
+    print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_acc}")
 
     #validation set
     total_loss = 0.0
     total_f1 = 0.0
+    total_acc = 0.0
     with torch.no_grad():
         for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
             outputs = model(inputs, metadatas, masks)
             loss = criterion(outputs, labels)
             total_loss += loss.item()
             total_f1 += f1_score(outputs,labels)
+            total_acc += accuracy(outputs,labels)
             print(f'{num_batch}/{len(eval_loader)}')
         average_loss = total_loss / len(eval_loader)
         average_f1 = total_f1 / len(eval_loader)
+        average_acc = total_acc / len(eval_loader)
         y_val_loss.append(average_loss)
         y_val_f1.append(average_f1.item())
-        print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1}")
+        y_val_acc.append(average_acc)
+        print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_acc}")
 
 print('Training time elapsed:', time.time() - starting_time)
 
@@ -178,19 +190,28 @@ plt.legend()
 plt.savefig("results_F1.png")
 plt.close()
 
+plt.plot(x, y_acc, label="Training accuracy")
+plt.plot(x, y_val_acc, label="Validation accuracy")
+plt.legend()
+plt.savefig("results_accuracy.png")
+plt.close()
+
 # Testing set
 total_loss = 0.0
 total_f1 = 0.0
+total_acc = 0.0
 with torch.no_grad():
-    for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
+    for num_batch, (inputs, metadatas, masks, labels) in enumerate(test_loader):
         outputs = model(inputs, metadatas, masks)
         loss = criterion(outputs, labels)
         total_loss += loss.item()
         total_f1 += f1_score(outputs,labels)
-        print(f'{num_batch}/{len(eval_loader)}')
-    average_f1 = total_f1 / len(eval_loader)
-    average_loss = total_loss / len(eval_loader)
-    print(f"Testing {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1}")
+        total_acc += accuracy(outputs,labels)
+        print(f'{num_batch}/{len(test_loader)}')
+    average_f1 = total_f1 / len(test_loader)
+    average_loss = total_loss / len(test_loader)
+    average_acc = total_acc / len(test_loader)
+    print(f"Testing {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_acc}")
 
 #writer.close()
 
