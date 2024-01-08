@@ -137,7 +137,7 @@ accuracy = MulticlassAccuracy(num_classes=len(LABELS)).to(device)
 #writer = SummaryWriter('runs/my_experiment')
 starting_time = time.time()
 
-
+prev_acc = 0.0
 for epoch in range(NUM_EPOCHS):
 
     buffer_dataset = []
@@ -147,6 +147,7 @@ for epoch in range(NUM_EPOCHS):
             buffer_eval = train_dataset[i]
         else:
             buffer_dataset.append(train_dataset[i])
+
     buffer_dataset = ConcatDataset(buffer_dataset)
     train_loader = DataLoader(buffer_dataset, batch_size=BATCH_SIZE, shuffle=True)
     eval_loader = DataLoader(buffer_eval, batch_size=BATCH_SIZE, shuffle=True)
@@ -189,11 +190,16 @@ for epoch in range(NUM_EPOCHS):
             print(f'{num_batch}/{len(eval_loader)}')
         average_loss = total_loss / len(eval_loader)
         average_f1 = total_f1 / len(eval_loader)
-        average_acc = total_acc / len(eval_loader)
+        average_val_acc = total_acc / len(eval_loader)
         y_val_loss.append(average_loss)
         y_val_f1.append(average_f1.item())
-        y_val_acc.append(average_acc)
-        print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_acc}")
+        y_val_acc.append(average_val_acc)
+        print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_val_acc}")
+    
+    if abs(average_acc-prev_acc)<0.03:
+        break
+    prev_acc = average_acc
+
 
 print('Training time elapsed:', time.time() - starting_time)
 
