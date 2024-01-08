@@ -8,6 +8,7 @@ from model import FakeNewsClassifier
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.optim as optim
+from torch.utils.data import ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 import time
@@ -41,6 +42,12 @@ train_sentences, train_meta_data, train_mask = preprocessing.preprocess(df_train
 eval_sentences, eval_meta_data, eval_mask = preprocessing.preprocess(df_eval, all_topic, nb_topic_max, all_speaker, all_job)
 test_sentences, test_meta_data, test_mask = preprocessing.preprocess(df_test, all_topic, nb_topic_max, all_speaker, all_job)
 
+train_a, train_b, train_c , train_d, train_e= torch.split(train_sentences,int(len(train_sentences)/5))
+train_sentences = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
+train_a, train_b, train_c , train_d, train_e= torch.split(train_meta_data,int(len(train_meta_data)/5))
+train_meta_data = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
+train_a, train_b, train_c , train_d, train_e= torch.split(train_mask,int(len(train_mask)/5))
+train_mask = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
 
 # Displaying histogram
 label_distribution = []
@@ -60,6 +67,9 @@ joblib.dump(label_encoder, 'data/label_encoder.plk')
 df_train['label'] = label_encoder.transform(df_train['label'])
 train_labels = df_train.pop('label')
 train_labels = torch.tensor(train_labels).to(device)
+
+train_a, train_b, train_c , train_d, train_e= torch.split(train_labels,int(len(train_labels)/5))
+train_labels = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
 
 df_eval['label'] = label_encoder.transform(df_eval['label'])
 eval_labels = df_eval.pop('label')
@@ -81,10 +91,6 @@ BATCH_SIZE = 8
 model = FakeNewsClassifier(meta_size=META_SIZE, meta_hidden_size=META_HIDDEN_SIZE, hidden_size=HIDDEN_SIZE, output_size=OUTPUT_SIZE).to(device)
 
 # Moving tensors to device
-train_sentences = train_sentences.to(device)
-train_meta_data = train_meta_data.to(device)
-train_mask = train_mask.to(device)
-
 eval_sentences = eval_sentences.to(device)
 eval_meta_data = eval_meta_data.to(device)
 eval_mask = eval_mask.to(device)
@@ -94,8 +100,9 @@ test_meta_data = test_meta_data.to(device)
 test_mask = test_mask.to(device)
 
 # Trainloader
-train_dataset = TensorDataset(train_sentences, train_meta_data, train_mask, train_labels)
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+train_dataset = []
+for i in range(len(train_mask)):
+    train_dataset.append(TensorDataset(train_sentences[i], train_meta_data[i], train_mask[i], train_labels[i]))
 
 # Valloader
 eval_dataset = TensorDataset(eval_sentences, eval_meta_data, eval_mask, eval_labels)
@@ -132,6 +139,18 @@ starting_time = time.time()
 
 
 for epoch in range(NUM_EPOCHS):
+
+    buffer_dataset = []
+    k_fold = epoch % 5
+    for i in range(len(train_dataset)):
+        if i == k_fold:
+            buffer_eval = train_dataset[i]
+        else:
+            buffer_dataset.append(train_dataset[i])
+    buffer_dataset = ConcatDataset(buffer_dataset)
+    train_loader = DataLoader(buffer_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    eval_loader = DataLoader(buffer_eval, batch_size=BATCH_SIZE, shuffle=True)
+
     total_loss = 0.0
     total_acc = 0.0
     total_f1 = 0.0
