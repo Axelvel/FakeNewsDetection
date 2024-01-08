@@ -1,4 +1,5 @@
-import torch  
+import torch
+import random
 import numpy as np
 from transformers import BertTokenizer
 
@@ -30,6 +31,15 @@ def avoid_nan(entry, entry_list):
         value = 0
     return value
 
+def add_noise(sentence):
+    if random.uniform(0, 1)>0.1:
+        return sentence
+    sentence = sentence.split()
+    for i in range(3):
+        x = random.randint(0, len(sentence)-1)
+        sentence[x] = "noise"
+    sentence = " ".join(sentence)
+    return sentence
 
 def extract_data(matrix, all_topic, nb_topic_max, all_speaker, all_job, all_states):
 
@@ -75,6 +85,8 @@ def extract_data(matrix, all_topic, nb_topic_max, all_speaker, all_job, all_stat
         line_meta_datas.append(sum_speech)
 
         meta_datas.append(line_meta_datas)
+
+        noise = add_noise(entry[1])
 
         if isinstance(entry[12],str):
             tok = tokenizer(entry[1] + entry[12], max_length=512, add_special_tokens=True, truncation=True, padding='max_length', return_tensors="pt")

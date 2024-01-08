@@ -17,7 +17,7 @@ class FakeNewsClassifier(nn.Module):
         self.meta_hidden_size = meta_hidden_size
 
 
-        self.bert = AutoModel.from_pretrained(BERT_MODEL)
+        self.bert = AutoModel.from_pretrained(BERT_MODEL,hidden_dropout_prob=0.5,attention_probs_dropout_prob=0.5)
         self.metadata_fc = nn.Linear(self.meta_size, self.meta_hidden_size)
 
         self.fc = nn.Sequential(
