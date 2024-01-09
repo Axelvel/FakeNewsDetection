@@ -12,6 +12,8 @@ from torch.utils.data import ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 import time
+import string as str
+import spacy
 
 device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Device:', device)
@@ -25,9 +27,41 @@ COLUMNS = ['id', 'label', 'statement', 'subject', 'speaker', 'job', 'state', 'pa
 LABELS = ['pants-fire', 'false', 'barely-true', 'half-true', 'mostly-true', 'true']
 
 df_train = pd.read_csv(TRAIN_PATH, sep='\t', names=COLUMNS)
-df_train = df_train[:100] # For testing purposes
 df_test = pd.read_csv(TEST_PATH, sep='\t', names=COLUMNS)
 df_eval = pd.read_csv(EVAL_PATH, sep='\t', names=COLUMNS)
+
+#df_train = df_train.groupby('label').apply(lambda x: x.sample(n=500, random_state=42)).reset_index(drop=True)
+
+category_counts = df_train['label'].value_counts()
+
+print("Category Counts:")
+print(category_counts)
+print(df_train['statement'])
+
+# Lowercasing statements
+df_train['statement'] = df_train['statement'].str.lower()
+df_test['statement'] = df_test['statement'].str.lower()
+df_eval['statement'] = df_eval['statement'].str.lower()
+
+
+# Lematization
+nlp = spacy.load('en_core_web_sm')  # Load the English language model
+
+
+def lemmatize_text(text):
+    doc = nlp(text)
+    return ' '.join([token.lemma_ for token in doc])
+
+
+df_train['statement'] = df_train['statement'].apply(lemmatize_text)
+df_test['statement'] = df_test['statement'].apply(lemmatize_text)
+df_eval['statement'] = df_eval['statement'].apply(lemmatize_text)
+
+# Removing punctuation
+df_train['statement'] = df_train['statement'].str.replace('[^\w\s]', '')
+df_test['statement'] = df_test['statement'].str.replace('[^\w\s]', '')
+df_eval['statement'] = df_eval['statement'].str.replace('[^\w\s]', '')
+
 
 # Data preprocessing
 df_train.pop('id')
@@ -42,11 +76,11 @@ train_sentences, train_meta_data, train_mask = preprocessing.preprocess(df_train
 eval_sentences, eval_meta_data, eval_mask = preprocessing.preprocess(df_eval, all_topic, nb_topic_max, all_speaker, all_job)
 test_sentences, test_meta_data, test_mask = preprocessing.preprocess(df_test, all_topic, nb_topic_max, all_speaker, all_job)
 
-train_a, train_b, train_c , train_d, train_e= torch.split(train_sentences,int(len(train_sentences)/5))
+train_a, train_b, train_c, train_d, train_e = torch.split(train_sentences, int(len(train_sentences)/4))
 train_sentences = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
-train_a, train_b, train_c , train_d, train_e= torch.split(train_meta_data,int(len(train_meta_data)/5))
+train_a, train_b, train_c, train_d, train_e = torch.split(train_meta_data, int(len(train_meta_data)/4))
 train_meta_data = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
-train_a, train_b, train_c , train_d, train_e= torch.split(train_mask,int(len(train_mask)/5))
+train_a, train_b, train_c, train_d, train_e = torch.split(train_mask, int(len(train_mask)/4))
 train_mask = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
 
 # Displaying histogram
@@ -57,7 +91,7 @@ for label in LABELS:
 print(label_distribution)
 plt.bar(LABELS, label_distribution)
 # plt.show()
-plt.close() # Close a figure window
+plt.close()
 
 # Encoding labels
 label_encoder = LabelEncoder()
@@ -68,7 +102,7 @@ df_train['label'] = label_encoder.transform(df_train['label'])
 train_labels = df_train.pop('label')
 train_labels = torch.tensor(train_labels).to(device)
 
-train_a, train_b, train_c , train_d, train_e= torch.split(train_labels,int(len(train_labels)/5))
+train_a, train_b, train_c, train_d, train_e = torch.split(train_labels, int(len(train_labels)/4))
 train_labels = [train_a.to(device), train_b.to(device), train_c.to(device), train_d.to(device), train_e.to(device)]
 
 df_eval['label'] = label_encoder.transform(df_eval['label'])
@@ -83,8 +117,8 @@ print(df_train)
 print(df_train.shape)
 
 META_SIZE = len(train_meta_data[0])
-META_HIDDEN_SIZE = 128
-HIDDEN_SIZE = 128
+META_HIDDEN_SIZE = 64
+HIDDEN_SIZE = 32
 OUTPUT_SIZE = len(LABELS)
 BATCH_SIZE = 8
 
@@ -104,7 +138,7 @@ train_dataset = []
 for i in range(len(train_mask)):
     train_dataset.append(TensorDataset(train_sentences[i], train_meta_data[i], train_mask[i], train_labels[i]))
 
-# Valloader
+# ValLoader
 eval_dataset = TensorDataset(eval_sentences, eval_meta_data, eval_mask, eval_labels)
 eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
@@ -113,14 +147,13 @@ test_dataset = TensorDataset(test_sentences, test_meta_data, test_mask, test_lab
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # Hyperparameters
-NUM_EPOCHS = 3
-LEARNING_RATE = 1e-4
+NUM_EPOCHS = 10
+LEARNING_RATE = 2e-5
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
+# optimizer = optim.Adam(params=model.parameters(), lr=LEARNING_RATE, weight_decay=weight_decay=1e-4)
 
-#creating graphs:
-# x = np.linspace(0, NUM_EPOCHS-1, NUM_EPOCHS)
-x = np.array(list(range(NUM_EPOCHS)))
+# Creating graphs:
 y_loss = []
 y_f1 = []
 y_acc = []
@@ -134,14 +167,16 @@ accuracy = MulticlassAccuracy(num_classes=len(LABELS)).to(device)
 
 
 # Tensorboard writer
-#writer = SummaryWriter('runs/my_experiment')
+# writer = SummaryWriter('runs/my_experiment')
 starting_time = time.time()
 
 prev_acc = 0.0
+
+# Training set
 for epoch in range(NUM_EPOCHS):
 
     buffer_dataset = []
-    k_fold = epoch % 5
+    k_fold = epoch % 4
     for i in range(len(train_dataset)):
         if i == k_fold:
             buffer_eval = train_dataset[i]
@@ -157,13 +192,14 @@ for epoch in range(NUM_EPOCHS):
     total_f1 = 0.0
     global_step = 0
     print('Epoch:', epoch+1)
+    model.train()
     for num_batch, (inputs, metadatas, masks, labels) in enumerate(train_loader):
         optimizer.zero_grad()
         outputs = model(inputs, metadatas, masks)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        #writer.add_scalar('loss', loss.item(), global_step)
+        # writer.add_scalar('loss', loss.item(), global_step)
         total_loss += loss.item()
         total_f1 += f1_score(outputs, labels)
         total_acc += accuracy(outputs,labels)
@@ -173,14 +209,15 @@ for epoch in range(NUM_EPOCHS):
     average_acc = total_acc / len(train_loader)
     y_loss.append(average_loss)
     y_f1.append(average_f1.item())
-    y_acc.append(average_acc)
+    y_acc.append(average_acc.item())
     print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_acc}")
 
-    #validation set
+    # Validation set
     total_loss = 0.0
     total_f1 = 0.0
     total_acc = 0.0
     with torch.no_grad():
+        model.eval()
         for num_batch, (inputs, metadatas, masks, labels) in enumerate(eval_loader):
             outputs = model(inputs, metadatas, masks)
             loss = criterion(outputs, labels)
@@ -193,15 +230,18 @@ for epoch in range(NUM_EPOCHS):
         average_val_acc = total_acc / len(eval_loader)
         y_val_loss.append(average_loss)
         y_val_f1.append(average_f1.item())
-        y_val_acc.append(average_val_acc)
+        y_val_acc.append(average_val_acc.item())
         print(f"Validation {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_val_acc}")
-    
-    if abs(average_acc-prev_acc)<0.03:
-        break
-    prev_acc = average_acc
+
+    # Early stopping
+    # if abs(average_acc-prev_acc) < 0.01:
+    #   # break
+    # prev_acc = average_acc
 
 
 print('Training time elapsed:', time.time() - starting_time)
+
+x = np.array(list(range(len(y_acc))))
 
 plt.plot(x, y_loss, label="Training loss")
 plt.plot(x, y_val_loss, label="Validation loss")
@@ -221,11 +261,14 @@ plt.legend()
 plt.savefig("results_accuracy.png")
 plt.close()
 
+print('Val accuracy', y_val_acc)
+
 # Testing set
 total_loss = 0.0
 total_f1 = 0.0
 total_acc = 0.0
 with torch.no_grad():
+    model.eval()
     for num_batch, (inputs, metadatas, masks, labels) in enumerate(test_loader):
         outputs = model(inputs, metadatas, masks)
         loss = criterion(outputs, labels)
@@ -238,11 +281,11 @@ with torch.no_grad():
     average_acc = total_acc / len(test_loader)
     print(f"Testing {epoch+1}/{NUM_EPOCHS} - Loss: {average_loss} - F1: {average_f1} - Accuracy: {average_acc}")
 
-#writer.close()
+# writer.close()y
 
 # Saving the PyTorch model
 MODEL_PATH = 'models/model.pt'
 
 # Classic model export
-#torch.save(model, MODEL_PATH)
+# torch.save(model, MODEL_PATH)
 torch.save(model.state_dict(), MODEL_PATH)
